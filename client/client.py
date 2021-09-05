@@ -8,8 +8,13 @@ import tqdm
 import threading
 
 SERVER_HOST="192.168.20.41"
+
 SERVER_RECEIVER_PORT=5001
 SERVER_SENDER_PORT=5002
+
+SERVER_RECEIVER_MESSAGE_PORT=5003
+SERVER_SENDER_MESSAGE_PORT=5004
+
 SEPARATOR = "<SEPARATOR>"
 BUFFER_SIZE = 1024 * 4
 
@@ -17,29 +22,34 @@ class Client():
     def __init__(self, host="localhost", port=5000):
         self.reportConnection(host, port)
 
-        sender = threading.Thread(target=self.receiverSocket)
-        sender.daemon = True
-        sender.start()
+        receiverMessage = threading.Thread(target=self.receiverFileSocket)
+        receiverFile = threading.Thread(target=self.receiverMessageSocket)
+        
+        receiverMessage.daemon = True
+        receiverFile.daemon = True
+
+        receiverMessage.start()
+        receiverFile.start()
 
 
         while True:
             msg = input("->")
             if msg == 'audio':
                 print("Se va a enviar el audio")
-                self.send_file("music.mp3", SERVER_HOST, SERVER_SENDER_PORT)
+                self.send_file("music.mp3")
             elif msg != 'salir':
                 self.msg_send(msg)
             else:
                 self.sock.close()
                 sys.exit()
 
-    def send_file(self, filename, host, port):
+    def send_file(self, filename):
         
         filesize = os.path.getsize(filename)
         
         s = socket.socket()
-        print(f"[+] Connecting to {host}:{port}")
-        s.connect((host, port))
+        print(f"[+] Connecting to {SERVER_HOST}:{SERVER_SENDER_PORT}")
+        s.connect((SERVER_HOST, SERVER_SENDER_PORT))
         print("[+] Connected.")
 
         
@@ -62,7 +72,20 @@ class Client():
         
         s.close()
 
-    def receiverSocket(self):
+    def receiverMessageSocket(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind((SERVER_HOST, SERVER_RECEIVER_MESSAGE_PORT))
+        s.listen(10)
+        while True:
+            client_socket, address = s.accept() 
+            received = client_socket.recv(2048)
+            print(received)
+
+            msg = input("->")
+            if msg != 'salir':
+                s.close()
+
+    def receiverFileSocket(self):
 
         s = socket.socket()
         s.bind((SERVER_HOST, SERVER_RECEIVER_PORT))
@@ -76,9 +99,7 @@ class Client():
             received = client_socket.recv(BUFFER_SIZE).decode()
 
             filename, filesize = received.split(SEPARATOR)
-
             filename = os.path.basename(filename)
-
             filesize = int(filesize)
 
             progress = tqdm.tqdm(range(filesize), f"Receiving {filename}", unit="B", unit_scale=True, unit_divisor=1024)
@@ -118,7 +139,7 @@ class Client():
         hostname = socket.gethostname()
         local_ip = socket.gethostbyname(hostname)
         alias = hostname + ":" + local_ip
-        self.msg_send(alias)
+        self.sock.send(pickle.dumps(alias))
 
     def msg_resv(self):
         while True:
@@ -129,8 +150,21 @@ class Client():
             except:
                 pass
 
+    # def msg_send(self, msg):
+    #     s = socket.socket()
+    #     print(f"[+] Connecting to {SERVER_HOST}:{SERVER_SENDER_PORT}")
+    #     s.connect((SERVER_HOST, SERVER_SENDER_PORT))
+    #     print("[+] Connected.")
+    #     s.send(b"msg".encode())
+    #     s.close()
+
     def msg_send(self, msg):
-        self.sock.send(pickle.dumps(msg))
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(f"[+] Connecting to {SERVER_HOST}:{SERVER_SENDER_MESSAGE_PORT}")
+        s.connect((SERVER_HOST, SERVER_SENDER_MESSAGE_PORT))
+        print("[+] Connected.")
+        s.send(bytes(msg, 'utf-8'))
+        s.close()
 
 
 
