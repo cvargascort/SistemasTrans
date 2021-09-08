@@ -7,7 +7,7 @@ import os
 import tqdm
 import threading
 
-SERVER_HOST="192.168.1.76"
+SERVER_HOST="10.0.1.37"
 
 SERVER_RECEIVER_PORT=5002
 SERVER_SENDER_PORT=5001
