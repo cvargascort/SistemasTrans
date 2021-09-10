@@ -1,26 +1,22 @@
 import socket
+import time
 import sys
 
-s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+UDP_IP = "127.0.0.1"
+UDP_PORT = 5005
+buf = 1024
+file_name = sys.argv[1]
 
-host = '127.0.0.1'
-port=6000
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.sendto(file_name.encode(), (UDP_IP, UDP_PORT))
+print("Sending %s ..." % file_name)
 
-msg="Trial msg"
+f = open(file_name, "r")
+data = f.read(buf)
+while(data):
+    if(sock.sendto(data, (UDP_IP, UDP_PORT))):
+        data = f.read(buf)
+        time.sleep(0.02) # Give receiver a bit time to save
 
-msg=msg.encode('utf-8')
-
-while 1:
-
-    s.sendto(msg,(host,port))
-    data, servaddr = s.recvfrom(1024)
-    data=data.decode('utf-8')
-    print("Server reply:", data)
-    break
-s.settimeout(5)   
-
-filehandle=open("music.mp3","rb")
-
-finalmsg=filehandle.read(1024)
-
-s.sendto(finalmsg, (host,port))
+sock.close()
+f.close()

@@ -1,27 +1,28 @@
 import socket
+import select
 
-host='127.0.0.1'
+UDP_IP = "127.0.0.1"
+IN_PORT = 5005
+timeout = 3
 
-port=6000
 
-s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, IN_PORT))
 
-s.bind(("",port))
+while True:
+    data, addr = sock.recvfrom(1024)
+    if data:
+        print("File name:", data)
+        file_name = data.strip()
 
-print("waiting on port:", port)
+    f = open(file_name, 'wb')
 
-while 1:
-
-    data, clientaddr= s.recvfrom(1024)
-    data=data.decode('utf-8')
-    print(data)
-    s.settimeout(4)
-    break
-
-reply="Got it thanks!"
-
-reply=reply.encode('utf-8')
-
-s.sendto(reply,clientaddr)
-
-clientmsg, clientaddr=s.recvfrom(1024)
+    while True:
+        ready = select.select([sock], [], [], timeout)
+        if ready[0]:
+            data, addr = sock.recvfrom(1024)
+            f.write(data)
+        else:
+            print("%s Finish!" % file_name)
+            f.close()
+            break
