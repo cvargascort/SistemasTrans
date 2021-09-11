@@ -2,6 +2,7 @@ import socket
 import sys
 import threading
 import pickle
+import argparse
 
 class Server():
 
@@ -11,7 +12,7 @@ class Server():
 
     def __init__(self, host='localhost', port=5000, listens=10):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_address = (str(host), int(port))
+        server_address = ('', int(port))
         self.sock.bind(server_address)
         self.sock.listen(int(listens))
         self.sock.setblocking(False)
@@ -49,6 +50,7 @@ class Server():
                         data = c.recv(1024) #localhost:127.0.0.1
                         if data: 
                             self.clientAlias.append(data)
+                            print(data)
                             self.msg_to_all(self.clientAlias)
                     except:
                         pass
@@ -64,4 +66,9 @@ class Server():
                 self.clientSockets.remove(c)
 
 
-s = Server('localhost', 5000)
+parser = argparse.ArgumentParser(description="Conectar al servidor")
+parser.add_argument("--server", help="La IP o host del servidor", default="localhost")
+parser.add_argument("-p", "--port", help="Port to use, default is 5000", type=int, default=5000)
+args = parser.parse_args()
+
+c = Server(args.server, args.port)

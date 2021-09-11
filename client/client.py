@@ -7,20 +7,21 @@ import os
 import tqdm
 import threading
 
-SERVER_HOST="192.168.20.41"
-
-SERVER_RECEIVER_PORT=5001
-SERVER_SENDER_PORT=5002
-
+SERVER_RECEIVER_PORT=5002
 SERVER_RECEIVER_MESSAGE_PORT=5003
-SERVER_SENDER_MESSAGE_PORT=5004
 
 SEPARATOR = "<SEPARATOR>"
 BUFFER_SIZE = 1024 * 4
 
 class Client():
+
+    clientList = []
+
     def __init__(self, host="localhost", port=5000):
         self.reportConnection(host, port)
+
+        hostname = socket.gethostname()
+        self.local_ip = socket.gethostbyname(hostname)
 
         receiverMessage = threading.Thread(target=self.receiverFileSocket)
         receiverFile = threading.Thread(target=self.receiverMessageSocket)
@@ -33,23 +34,23 @@ class Client():
 
 
         while True:
-            msg = input("->")
+            ip = input("Escribir ip ->")
+            msg = input("Mensaje ->")
             if msg == 'audio':
-                print("Se va a enviar el audio")
-                self.send_file("music.mp3")
+                self.send_file("music.mp3", ip)
             elif msg != 'salir':
-                self.msg_send(msg)
-            else:
+                self.msg_send(msg, ip)
+            else:   
                 self.sock.close()
                 sys.exit()
 
-    def send_file(self, filename):
+    def send_file(self, filename, ip):
         
         filesize = os.path.getsize(filename)
         
         s = socket.socket()
-        print(f"[+] Connecting to {SERVER_HOST}:{SERVER_SENDER_PORT}")
-        s.connect((SERVER_HOST, SERVER_SENDER_PORT))
+        print(f"[+] Connecting to {ip}:{SERVER_RECEIVER_PORT}")
+        s.connect((ip, SERVER_RECEIVER_PORT))
         print("[+] Connected.")
 
         
@@ -74,7 +75,7 @@ class Client():
 
     def receiverMessageSocket(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((SERVER_HOST, SERVER_RECEIVER_MESSAGE_PORT))
+        s.bind((self.local_ip, SERVER_RECEIVER_MESSAGE_PORT))
         s.listen(10)
         while True:
             client_socket, address = s.accept() 
@@ -88,13 +89,13 @@ class Client():
     def receiverFileSocket(self):
 
         s = socket.socket()
-        s.bind((SERVER_HOST, SERVER_RECEIVER_PORT))
+        s.bind((self.local_ip, SERVER_RECEIVER_PORT))
         s.listen(10)
 
         while True:
-            print(f"[*] Listening as {SERVER_HOST}:{SERVER_RECEIVER_PORT}")
+            print(f"\n[*] Listening as {self.local_ip}:{SERVER_RECEIVER_PORT}")
             client_socket, address = s.accept() 
-            print(f"[+] {address} is connected.")
+            print(f"\n[+] {address} is connected.")
 
             received = client_socket.recv(BUFFER_SIZE).decode()
 
@@ -138,15 +139,19 @@ class Client():
 
         hostname = socket.gethostname()
         local_ip = socket.gethostbyname(hostname)
-        alias = hostname + ":" + local_ip
-        self.sock.send(pickle.dumps(alias))
+        alias = local_ip
+        self.sock.send(bytes(alias, 'utf-8'))
 
     def msg_resv(self):
         while True:
             try:
                 data = self.sock.recv(1024)
                 if data:
-                    print(pickle.loads(data))
+                    self.clientList = pickle.loads(data)
+                    print("**** Lista de IP ****")
+                    for c in self.clientList:
+                        print(c)
+                    print("*********************")
             except:
                 pass
 
@@ -158,14 +163,19 @@ class Client():
     #     s.send(b"msg".encode())
     #     s.close()
 
-    def msg_send(self, msg):
+    def msg_send(self, msg, ip):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print(f"[+] Connecting to {SERVER_HOST}:{SERVER_SENDER_MESSAGE_PORT}")
-        s.connect((SERVER_HOST, SERVER_SENDER_MESSAGE_PORT))
+        print(f"[+] Connecting to {ip}:{SERVER_RECEIVER_MESSAGE_PORT}")
+        s.connect((ip, SERVER_RECEIVER_MESSAGE_PORT))
         print("[+] Connected.")
         s.send(bytes(msg, 'utf-8'))
         s.close()
 
 
 
-c = Client('127.0.0.1', 5000)
+parser = argparse.ArgumentParser(description="Conectar al servidor")
+parser.add_argument("--server", help="La IP o host del servidor", default="localhost")
+parser.add_argument("-p", "--port", help="Port to use, default is 5000", type=int, default=5000)
+args = parser.parse_args()
+
+c = Client(args.server, args.port)
